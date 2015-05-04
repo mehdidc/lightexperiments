@@ -4,10 +4,36 @@ import os
 from io import TextIOWrapper, BytesIO
 from light import light
 
+import datetime as dt
+
+def initials(e):
+    e = date(e)
+    e = duration_start(e)
+    return e
+
+def endings(e):
+    e = duration_end(e)
+    return e
+
+def date(e):
+    e["datetime"] = str(dt.datetime.now())
+    return e
+
+def duration_start(e):
+    e["start"] = dt.datetime.now()
+
+def duration_end(e):
+    e["end"] = dt.datetime.now()
+    e["duration"] = e["end"] - e["start"]
+
+    e["start"] = str(e["start"])
+    e["end"] = str(e["end"])
+    e["duration"] = str(e["duration"])
+
 def append(e, name, value):
     if name not in e:
-        e[name] = []
-    e[name].append(value)
+        e[name] = ""
+    e[name] += str(value)+","
     return e
 
 
@@ -47,4 +73,3 @@ def end_collect_stdout(e):
     sys.stdout = e["old_stdout"]
     del e["old_stdout"]
     return e
-

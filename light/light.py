@@ -17,13 +17,16 @@ class Light(object):
             self.config = json.load(open(light.config_file, "r"))
         except Exception:
             self.config = {}
+        self.funcs = {}
+        self.cur_experiment = self.new_experiment()
 
+
+    def launch(self):
         self.db_filename = self.config.get("db", self.db_default)
         self.db_filename = self.db_filename.encode()  # why error ?
         self.db = UnQLite(database=self.db_filename)
         self.experiments = self.db.collection('experiments')
-        self.cur_experiment = self.new_experiment()
-        self.funcs = {}
+        self.experiments.create()
 
     def register(self, funcs):
         for func in funcs:
@@ -41,8 +44,11 @@ class Light(object):
         self.db.commit()
         self.cur_experiment = None
 
-    def new_experiment(self, ):
+    def new_experiment(self):
         return {}
+
+    def close(self):
+        self.db.close()
 
 
 light = Light()
@@ -58,10 +64,11 @@ for m in modules:
 
 
 if __name__ == "__main__":
+    light.launch()
     light.file_snapshot()
     light.start_collect_stdout()
     light.end_collect_stdout()
-    light.tag("tag1")
-    light.tag("tag2")
-
+    light.tag("light_test")
+    light.date()
     light.store_experiment()
+    light.close()
