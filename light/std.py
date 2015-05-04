@@ -4,7 +4,6 @@ import os
 from io import TextIOWrapper, BytesIO
 from light import light
 
-
 def append(e, name, value):
     if name not in e:
         e[name] = []
@@ -48,3 +47,4 @@ def end_collect_stdout(e):
     sys.stdout = e["old_stdout"]
     del e["old_stdout"]
     return e
+
