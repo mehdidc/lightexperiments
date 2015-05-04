@@ -11,12 +11,20 @@ class Light(object):
     db_default = os.path.join(os.getenv("HOME"), "work", "data", "exps.dat")
     config = None
 
+    def __init__(self):
+        self.cache = {}
+
     def __getattr__(self, v):
+        if v in self.cache:
+            return self.cache[v]
         for m in modules:
             module = __import__(m)
             if v in module.__dict__:
-                def f(**x):
-                    return getattr(module, v)(light.cur_experiment, **x)
+                m = getattr(module, v)
+
+                def f(*args, **kwargs):
+                    return m(light.cur_experiment, *args, **kwargs)
+                self.cache[v] = f
                 return f
         return None
 
@@ -54,5 +62,7 @@ if __name__ == "__main__":
     light.start_collect_stdout()
     print("m")
     light.end_collect_stdout()
+    light.tag("tag1")
+    light.tag("tag2")
 
     store_experiment()
