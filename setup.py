@@ -9,5 +9,6 @@ setup(
     license="BSD",
     keywords="",
     url="",
-    packages=["ext"],
+    packages=["light", "light.ext"],
+    py_modules=["light.light"],
 )
