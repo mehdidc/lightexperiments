@@ -3,7 +3,7 @@ import types
 
 import json
 from unqlite import UnQLite
-
+import unqlite
 from utils import SingletonDecorator
 from remote import client
 import std
@@ -43,7 +43,13 @@ class Light(object):
     def launch(self):
         self.db_filename = self.config.get("db", self.db_default)
         self.db_filename = self.db_filename.encode()  # why error ?
-        self.db = UnQLite(database=self.db_filename)
+        read_only = self.config.get("read_only", False)
+        self.db = UnQLite(database=self.db_filename, open_manually=True)
+        if read_only is True:
+            flag = unqlite.UNQLITE_OPEN_READONLY
+        else:
+            flag = unqlite.UNQLITE_OPEN_CREATE
+        self.db.open(flag)
         self.experiments = self.db.collection('experiments')
         self.experiments.create()
 
