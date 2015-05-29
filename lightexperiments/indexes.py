@@ -7,7 +7,7 @@ class TagIndex(MultiHashIndex):
     custom_header = """from CodernityDB.hash_index import MultiHashIndex"""
 
     def __init__(self, *args, **kwargs):
-        self.length = kwargs.get("length", 20)
+        self.length = kwargs.get("length", 100)
         kwargs['key_format'] = '{0}s'.format(self.length)
         super(TagIndex, self).__init__(*args, **kwargs)
 
