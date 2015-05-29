@@ -103,7 +103,6 @@ def add_indexes(db):
 register = [
     initials,
     endings,
-    date,
     duration_start,
     duration_end,
     append,
