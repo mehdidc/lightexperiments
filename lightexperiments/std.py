@@ -17,23 +17,23 @@ def endings(e):
     return e
 
 
+datetime_format = "%Y-%m-%d %H:%M:%S"
 def date(e):
-    e["datetime"] = str(dt.datetime.now())
+    e["datetime"] = dt.datetime.now().strftime(datetime_format)
     return e
 
 
 def duration_start(e):
     e["start"] = dt.datetime.now()
+    return e
 
 
 def duration_end(e):
     e["end"] = dt.datetime.now()
-    e["duration"] = e["end"] - e["start"]
-
-    e["start"] = str(e["start"])
-    e["end"] = str(e["end"])
-    e["duration"] = str(e["duration"])
-
+    e["duration"] = (e["end"] - e["start"]).total_seconds()
+    e["start"] = e["start"].strftime(datetime_format)
+    e["end"] = e["end"].strftime(datetime_format)
+    return e
 
 def append(e, name, value):
     if name not in e:
@@ -91,6 +91,17 @@ def set_seed(e, seed):
 def set(e, k, v):
     e[k] = v
     return e
+
+
+from indexes import TagIndex, DatetimeIndex, FloatIndex
+
+
+def add_indexes(db):
+    db.add_index(TagIndex(db.path, "tags"))
+    db.add_index(DatetimeIndex(db.path, "start"))
+    db.add_index(DatetimeIndex(db.path, "end"))
+    db.add_index(FloatIndex(db.path, "duration"))
+    return db
 
 register = [
     initials,
