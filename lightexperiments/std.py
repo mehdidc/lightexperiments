@@ -7,7 +7,6 @@ import datetime as dt
 
 
 def initials(e):
-    e = date(e)
     e = duration_start(e)
     return e
 
@@ -18,9 +17,6 @@ def endings(e):
 
 
 datetime_format = "%Y-%m-%d %H:%M:%S"
-def date(e):
-    e["datetime"] = dt.datetime.now().strftime(datetime_format)
-    return e
 
 
 def duration_start(e):
@@ -34,6 +30,7 @@ def duration_end(e):
     e["start"] = e["start"].strftime(datetime_format)
     e["end"] = e["end"].strftime(datetime_format)
     return e
+
 
 def append(e, name, value):
     if name not in e:
@@ -106,7 +103,6 @@ def add_indexes(db):
 register = [
     initials,
     endings,
-    date,
     duration_start,
     duration_end,
     append,
