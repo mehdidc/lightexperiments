@@ -2,10 +2,8 @@ import os
 import types
 import json
 from utils import SingletonDecorator
-from remote import client
 import std
-
-from CodernityDB.database import Database
+from pymongo import MongoClient
 
 
 @SingletonDecorator
@@ -16,20 +14,10 @@ class Light(object):
 
     modules = [std]
 
-    def __new__(cls, config=None):
-        if config is None:
-            try:
-                config = json.load(open(cls.config_default))
-            except Exception:
-                config = {}
-        if (config.get("uri") is not None and config.get("remote", False) is False):
-            return client.proxy(config.get("uri"))
-        else:
-            obj = object.__new__(cls)
-            obj.config = config
-            return obj
-
     def __init__(self, config=None):
+        if config is None:
+            config = dict()
+        self.config = config
         self.funcs = {}
         self.cur_experiment = self.new_experiment()
         self.register_all()
@@ -42,21 +30,17 @@ class Light(object):
 
     def launch(self):
         self.db_filename = self.config.get("db", self.db_default)
-        self.db_filename = self.db_filename.encode()  # why error ?
-        read_only = self.config.get("read_only", False)
-        self.db = Database(self.db_filename)
-        if not self.db.exists():
-            self.db.create()
-            self.add_indexes()
-        else:
-            if read_only is True:
-                self.db.open()
-            else:
-                self.db.open()
+        self.db_filename = self.db_filename.encode()
+        self.client = MongoClient(self.config.get("host", "localhost"),
+                                  self.config.get("port", 27017))
+        self.db_main = self.client[self.config.get("db_name", "main")]
+        self.db = self.db_main[self.config.get("collection_name",
+                                               "main_collection")]
+        self.add_indexes()
 
     def add_indexes(self):
         for m in self.modules:
-            self.db = m.add_indexes(self.db)
+            self.dbn = m.add_indexes(self.db)
 
     def register(self, funcs):
         for func in funcs:
@@ -88,8 +72,8 @@ class Light(object):
         return {}
 
     def close(self):
-        self.db.close()
-
+        self.db_main.logout()
+        self.client.close()
 
 if __name__ == "__main__":
     light = Light()
@@ -99,12 +83,9 @@ if __name__ == "__main__":
     light.start_collect_stdout()
     light.end_collect_stdout()
     light.tag("light_test")
-    light.tag("mmmm")
     light.endings()
 
     light.store_experiment()
-    l=(light.db.get("tags", "mmmm", with_doc=True))
-
-    for cur in light.db.get_many("start", start="2017-01-01 00:00:00", end="2016-01-01 00:00:00", with_doc=True):
-        print(cur.get("doc").keys())
+    l = light.db.find({"tags": "light_test"})
+    print(list(l))
     light.close()

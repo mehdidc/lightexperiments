@@ -27,8 +27,8 @@ def duration_start(e):
 def duration_end(e):
     e["end"] = dt.datetime.now()
     e["duration"] = (e["end"] - e["start"]).total_seconds()
-    e["start"] = e["start"].strftime(datetime_format)
-    e["end"] = e["end"].strftime(datetime_format)
+    e["start"] = e["start"]
+    e["end"] = e["end"]
     return e
 
 
@@ -85,19 +85,17 @@ def set_seed(e, seed):
     e["seed"] = seed
     return e
 
+
 def set(e, k, v):
     e[k] = v
     return e
 
 
-from indexes import TagIndex, DatetimeIndex, FloatIndex
-
-
 def add_indexes(db):
-    db.add_index(TagIndex(db.path, "tags"))
-    db.add_index(DatetimeIndex(db.path, "start"))
-    db.add_index(DatetimeIndex(db.path, "end"))
-    db.add_index(FloatIndex(db.path, "duration"))
+    from pymongo import DESCENDING
+    db.create_index([("start", DESCENDING), ("end", DESCENDING)])
+    db.create_index("tags")
+    db.create_index("duration")
     return db
 
 register = [
