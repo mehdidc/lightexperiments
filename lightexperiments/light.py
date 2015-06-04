@@ -36,6 +36,7 @@ class Light(object):
         self.db_main = self.client[self.config.get("db_name", "main")]
         self.db = self.db_main[self.config.get("collection_name",
                                                "main_collection")]
+        self.db_blobs = self.db_main[self.config.get("collection_name_blobs", "blobs")]
         self.add_indexes()
 
     def add_indexes(self):
@@ -75,6 +76,13 @@ class Light(object):
         self.db_main.logout()
         self.client.close()
 
+    def insert_blob(self, content):
+        blob_id = self.db_blobs.insert(dict(content=content))
+        return blob_id
+
+    def get_blob(self, _id):
+        return self.db_blobs.find_one(dict(_id=_id)).get("content")
+
 if __name__ == "__main__":
     light = Light()
     light.launch()
@@ -84,8 +92,7 @@ if __name__ == "__main__":
     light.end_collect_stdout()
     light.tag("light_test")
     light.endings()
-
+    id_ = light.insert_blob([111111, 1121])
     light.store_experiment()
     l = light.db.find({"tags": "light_test"})
-    print(list(l))
     light.close()
