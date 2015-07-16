@@ -96,6 +96,7 @@ def add_indexes(db):
     db.create_index([("start", DESCENDING), ("end", DESCENDING)])
     db.create_index("tags")
     db.create_index("duration")
+    db.create_index("blob_hash")
     return db
 
 register = [
