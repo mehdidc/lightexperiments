@@ -4,6 +4,8 @@ import json
 from utils import SingletonDecorator
 import std
 from pymongo import MongoClient
+import hashlib
+import cPickle as pickle
 
 
 @SingletonDecorator
@@ -11,6 +13,7 @@ class Light(object):
     config_default = os.path.join(os.getenv("HOME"),
                                   "work", "data", "config.light")
     db_default = os.path.join(os.getenv("HOME"), "work", "data", "exps.dat")
+    waiting_list_default = os.path.join(os.getenv("HOME"), "work", "data", "light_waiting_list")
 
     modules = [std]
 
@@ -21,6 +24,7 @@ class Light(object):
         self.funcs = {}
         self.cur_experiment = self.new_experiment()
         self.register_all()
+        self.db_loaded = False
 
     def register_all(self):
         # register all functions in all modules
@@ -29,15 +33,19 @@ class Light(object):
                 self.register([func])
 
     def launch(self):
-        self.db_filename = self.config.get("db", self.db_default)
-        self.db_filename = self.db_filename.encode()
-        self.client = MongoClient(self.config.get("host", "localhost"),
-                                  self.config.get("port", 27017))
-        self.db_main = self.client[self.config.get("db_name", "main")]
-        self.db = self.db_main[self.config.get("collection_name",
-                                               "main_collection")]
-        self.db_blobs = self.db_main[self.config.get("collection_name_blobs", "blobs")]
-        self.add_indexes()
+        try:
+            self.db_filename = self.config.get("db", self.db_default)
+            self.db_filename = self.db_filename.encode()
+            self.client = MongoClient(self.config.get("host", "localhost"),
+                                    self.config.get("port", 27017))
+            self.db_main = self.client[self.config.get("db_name", "main")]
+            self.db = self.db_main[self.config.get("collection_name",
+                                                "main_collection")]
+            self.db_blobs = self.db_main[self.config.get("collection_name_blobs", "blobs")]
+            self.add_indexes()
+            self.db_loaded = True
+        except Exception:
+            self.db_loaded = False
 
     def add_indexes(self):
         for m in self.modules:
@@ -66,22 +74,63 @@ class Light(object):
     def store_experiment(self, e=None):
         if e is None:
             e = self.cur_experiment
-        self.db.insert(e)
+        if self.db_loaded is True:
+            self.db.insert(e)
+        else:
+            m = hashlib.md5()
+            m.update(str(self.cur_experiment))
+            filename = m.hexdigest()
+            fd = open("{0}/{1}.pkl".format(self.config.get("waiting_list", self.waiting_list_default), filename), "w")
+            pickle.dump(self.cur_experiment, fd)
+            fd.close()
+
         self.cur_experiment = None
 
     def new_experiment(self):
         return {}
 
     def close(self):
-        self.db_main.logout()
-        self.client.close()
+        if self.db_loaded:
+            self.db_main.logout()
+            self.client.close()
 
     def insert_blob(self, content):
-        blob_id = self.db_blobs.insert(dict(content=content))
-        return blob_id
+        m = hashlib.md5()
+        m.update(pickle.dumps(content))
+        blob_hash = m.hexdigest()
 
-    def get_blob(self, _id):
-        return self.db_blobs.find_one(dict(_id=_id)).get("content")
+        if self.db_loaded:
+            self.db_blobs.insert(dict(content=content,
+                                      blob_hash=blob_hash))
+        else:
+            filename = blob_hash
+            fd = open("{0}/{1}.blob".format(self.config.get("waiting_list",
+                                                            self.waiting_list_default), filename), "w")
+            pickle.dump(content, fd)
+            fd.close()
+        return blob_hash
+
+    def get_blob(self, _id=None, blob_hash=None):
+        d = dict()
+        if _id is not None:
+            d["_id"] = _id
+        if blob_hash is not None:
+            d["blob_hash"] = blob_hash
+        return self.db_blobs.find_one(d).get("content")
+
+    def process_waiting_list(self):
+        for filename in glob.glob(self.config.get("waiting_list", self.waiting_list_default)+"/*.pkl"):
+            fd = open(filename)
+            e = pickle.load(fd)
+            fd.close()
+            self.store_experiment(e)
+            os.remove(filename)
+        for filename in glob.glob(self.config.get("waiting_list", self.waiting_list_default)+"/*.blob"):
+            fd = open(filename)
+            content = pickle.load(fd)
+            fd.close()
+            self.insert_blob(content)
+            os.remove(filename)
 
 if __name__ == "__main__":
     light = Light()
