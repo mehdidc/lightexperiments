@@ -116,7 +116,13 @@ class Light(object):
             d["_id"] = _id
         if blob_hash is not None:
             d["blob_hash"] = blob_hash
-        return self.db_blobs.find_one(d).get("content")
+        if self.db_loaded is True:
+            return self.db_blobs.find_one(d).get("content")
+        else:
+            fd = open(self.config.get("waiting_list", self.waiting_list_default) + "/" + blob_hash + ".blob")
+            content = pickle.load(fd)
+            fd.close()
+            return content
 
     def process_waiting_list(self):
         for filename in glob.glob(self.config.get("waiting_list", self.waiting_list_default)+"/*.pkl"):
