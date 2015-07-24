@@ -6,7 +6,25 @@ import std
 from pymongo import MongoClient
 import hashlib
 import cPickle as pickle
+import glob
 
+import numpy as np
+def clean(e):
+
+    if type(e) == dict:
+        for k, v in e.items():
+            e[k] = clean(v)
+        return e
+    elif type(e) == list:
+        return [clean(a) for a in e]
+    elif type(e) == np.array or type(e) == np.ndarray:
+        return e.tolist()
+    elif type(e) == np.float32 or type(e) == np.float64:
+        return float(e)
+    elif type(e) == np.int32 or type(e) == np.int64:
+        return int(e)
+    else:
+        return e
 
 @SingletonDecorator
 class Light(object):
@@ -129,14 +147,24 @@ class Light(object):
             fd = open(filename)
             e = pickle.load(fd)
             fd.close()
-            self.store_experiment(e)
-            os.remove(filename)
+            try:
+                e = clean(e)
+                self.store_experiment(e)
+                os.remove(filename)
+            except Exception as ex:
+                print("Could not deal with : {0}, exception : {1}".format(filename, ex))
+                print(e)
+                sys.exit(0)
         for filename in glob.glob(self.config.get("waiting_list", self.waiting_list_default)+"/*.blob"):
             fd = open(filename)
             content = pickle.load(fd)
             fd.close()
-            self.insert_blob(content)
-            os.remove(filename)
+            try:
+                content = clean(content)
+                self.insert_blob(content)
+                os.remove(filename)
+            except Exception as ex:
+                print("Could not deal with : {0}, exception : {1}".format(filename, ex))
 
 if __name__ == "__main__":
     light = Light()
