@@ -1,14 +1,20 @@
 import os
 import types
-import json
-from utils import SingletonDecorator
+import sys
 import std
-from pymongo import MongoClient
 import hashlib
 import cPickle as pickle
 import glob
 
+
+from pymongo import MongoClient
+
+from utils import SingletonDecorator
+
+
 import numpy as np
+
+
 def clean(e):
 
     if type(e) == dict:
@@ -26,12 +32,14 @@ def clean(e):
     else:
         return e
 
+
 @SingletonDecorator
 class Light(object):
     config_default = os.path.join(os.getenv("HOME"),
                                   "work", "data", "config.light")
-    db_default = os.path.join(os.getenv("HOME"), "work", "data", "exps.dat")
-    waiting_list_default = os.path.join(os.getenv("HOME"), "work", "data", "light_waiting_list")
+    waiting_list_default = os.path.join(
+        os.getenv("HOME"), "work", "data",
+        "light_waiting_list")
 
     modules = [std]
 
@@ -52,14 +60,13 @@ class Light(object):
 
     def launch(self):
         try:
-            self.db_filename = self.config.get("db", self.db_default)
-            self.db_filename = self.db_filename.encode()
             self.client = MongoClient(self.config.get("host", "localhost"),
-                                    self.config.get("port", 27017))
+                                      self.config.get("port", 27017))
             self.db_main = self.client[self.config.get("db_name", "main")]
             self.db = self.db_main[self.config.get("collection_name",
-                                                "main_collection")]
-            self.db_blobs = self.db_main[self.config.get("collection_name_blobs", "blobs")]
+                                   "main_collection")]
+            self.db_blobs = self.db_main[
+                self.config.get("collection_name_blobs", "blobs")]
             self.add_indexes()
             self.db_loaded = True
         except Exception:
@@ -98,7 +105,10 @@ class Light(object):
             m = hashlib.md5()
             m.update(str(self.cur_experiment))
             filename = m.hexdigest()
-            fd = open("{0}/{1}.pkl".format(self.config.get("waiting_list", self.waiting_list_default), filename), "w")
+            filename = ("{0}/{1}.pkl".format(
+                self.config.get("waiting_list", self.waiting_list_default),
+                filename))
+            fd = open(filename, "w")
             pickle.dump(self.cur_experiment, fd)
             fd.close()
 
@@ -122,8 +132,11 @@ class Light(object):
                                       blob_hash=blob_hash))
         else:
             filename = blob_hash
-            fd = open("{0}/{1}.blob".format(self.config.get("waiting_list",
-                                                            self.waiting_list_default), filename), "w")
+
+            filename = "{0}/{1}.blob".format(
+                self.config.get("waiting_list", self.waiting_list_default),
+                filename)
+            fd = open(filename, "w")
             pickle.dump(content, fd)
             fd.close()
         return blob_hash
@@ -137,34 +150,52 @@ class Light(object):
         if self.db_loaded is True:
             return self.db_blobs.find_one(d).get("content")
         else:
-            fd = open(self.config.get("waiting_list", self.waiting_list_default) + "/" + blob_hash + ".blob")
+            filename = (self.config.get("waiting_list",
+                                        self.waiting_list_default) +
+                        "/" + blob_hash + ".blob")
+            fd = open(filename)
             content = pickle.load(fd)
             fd.close()
             return content
 
     def process_waiting_list(self):
-        for filename in glob.glob(self.config.get("waiting_list", self.waiting_list_default)+"/*.pkl"):
+        filenames = self.config.get("waiting_list",
+                                    self.waiting_list_default)+"/*.pkl"
+        for filename in glob.glob(filenames):
+            print("Processing : {0}".format(filename))
             fd = open(filename)
             e = pickle.load(fd)
             fd.close()
             try:
                 e = clean(e)
                 self.store_experiment(e)
-                os.remove(filename)
             except Exception as ex:
-                print("Could not deal with : {0}, exception : {1}".format(filename, ex))
-                print(e)
+                errmsg = ("Could not deal with : {0}, exception : {1}".format(
+                          filename, ex))
+                print(errmsg)
                 sys.exit(0)
-        for filename in glob.glob(self.config.get("waiting_list", self.waiting_list_default)+"/*.blob"):
+            else:
+                os.rename(filename, filename + ".bak")
+
+        filenames = (self.config.get("waiting_list",
+                     self.waiting_list_default)+"/*.blob")
+        for filename in glob.glob(filenames):
+            print("Processing : {0}".format(filename))
             fd = open(filename)
             content = pickle.load(fd)
             fd.close()
             try:
                 content = clean(content)
                 self.insert_blob(content)
-                os.remove(filename)
+                os.rename(filename, filename + ".bak")
             except Exception as ex:
-                print("Could not deal with : {0}, exception : {1}".format(filename, ex))
+
+                errmsg = ("Could not deal with : {0}, exception : {1}".format(
+                          filename, ex))
+                print(errmsg)
+            else:
+                os.rename(filename, filename + ".bak")
+                sys.exit(0)
 
 if __name__ == "__main__":
     light = Light()
