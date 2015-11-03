@@ -1,15 +1,14 @@
 import os
 import types
 import sys
-import std
 import hashlib
-import cPickle as pickle
+import pickle
 import glob
-
+from . import std
 
 from pymongo import MongoClient
 
-from utils import SingletonDecorator
+from .utils import SingletonDecorator
 
 
 import numpy as np
@@ -18,7 +17,7 @@ import numpy as np
 def clean(e):
 
     if type(e) == dict:
-        for k, v in e.items():
+        for k, v in list(e.items()):
             e[k] = clean(v)
         return e
     elif type(e) == list:
@@ -84,10 +83,10 @@ class Light(object):
                 f.__name__ = func.__name__
                 setattr(self.__class__,
                         func.__name__,
-                        types.MethodType(f, None, self.__class__))
+                        types.MethodType(f, self.__class__))
                 setattr(self, func.__name__,
-                        types.MethodType(f, self, self.__class__))
-            except Exception, e:
+                        types.MethodType(f, self.__class__))
+            except Exception as e:
                 print(e)
 
     def __getattr__(self, v):
@@ -162,7 +161,7 @@ class Light(object):
         filenames = self.config.get("waiting_list",
                                     self.waiting_list_default)+"/*.pkl"
         for filename in glob.glob(filenames):
-            print("Processing : {0}".format(filename))
+            print(("Processing : {0}".format(filename)))
             fd = open(filename)
             e = pickle.load(fd)
             fd.close()
@@ -180,7 +179,7 @@ class Light(object):
         filenames = (self.config.get("waiting_list",
                      self.waiting_list_default)+"/*.blob")
         for filename in glob.glob(filenames):
-            print("Processing : {0}".format(filename))
+            print(("Processing : {0}".format(filename)))
             fd = open(filename)
             content = pickle.load(fd)
             fd.close()
