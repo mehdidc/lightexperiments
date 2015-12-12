@@ -1,6 +1,5 @@
 import os
 import types
-import sys
 import hashlib
 import pickle
 import glob
@@ -12,6 +11,11 @@ from .utils import SingletonDecorator
 
 
 import numpy as np
+
+import logging
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 def clean(e):
@@ -68,7 +72,10 @@ class Light(object):
                 self.config.get("collection_name_blobs", "blobs")]
             self.add_indexes()
             self.db_loaded = True
-        except Exception:
+        except Exception as e:
+            msg = "Error during connecting to mongodb : {}".format(repr(e))
+            logging.error(msg)
+            logging.info("Thus the result will be store in the waiting list")
             self.db_loaded = False
 
     def add_indexes(self):
@@ -99,6 +106,7 @@ class Light(object):
         if e is None:
             e = self.cur_experiment
         if self.db_loaded is True:
+            logging.info("Storing into db")
             self.db.insert(e)
         else:
             m = hashlib.md5()
@@ -107,6 +115,7 @@ class Light(object):
             filename = ("{0}/{1}.pkl".format(
                 self.config.get("waiting_list", self.waiting_list_default),
                 filename))
+            logging.info("Storing into {}".format(filename))
             fd = open(filename, "w")
             pickle.dump(self.cur_experiment, fd)
             fd.close()
@@ -126,7 +135,8 @@ class Light(object):
         m.update(pickle.dumps(content))
         blob_hash = m.hexdigest()
 
-        if self.db_loaded:
+        if self.db_loaded is True:
+            logging.info("Storing into db")
             self.db_blobs.insert(dict(content=content,
                                       blob_hash=blob_hash))
         else:
@@ -135,6 +145,7 @@ class Light(object):
             filename = "{0}/{1}.blob".format(
                 self.config.get("waiting_list", self.waiting_list_default),
                 filename)
+            logging.info("Storing into {}".format(filename))
             fd = open(filename, "w")
             pickle.dump(content, fd)
             fd.close()
@@ -158,28 +169,30 @@ class Light(object):
             return content
 
     def process_waiting_list(self):
+        assert self.db_loaded is True
         filenames = self.config.get("waiting_list",
                                     self.waiting_list_default)+"/*.pkl"
         for filename in glob.glob(filenames):
-            print(("Processing : {0}".format(filename)))
+            logging.info(("Processing : {0}".format(filename)))
             fd = open(filename)
             e = pickle.load(fd)
             fd.close()
             try:
                 e = clean(e)
                 self.store_experiment(e)
+                logger.info("Ok, working")
             except Exception as ex:
                 errmsg = ("Could not deal with : {0}, exception : {1}".format(
                           filename, ex))
-                print(errmsg)
-                sys.exit(0)
+                logging.error(errmsg)
             else:
+                logging.info("renaming : {}".format(filename))
                 os.rename(filename, filename + ".bak")
 
         filenames = (self.config.get("waiting_list",
                      self.waiting_list_default)+"/*.blob")
         for filename in glob.glob(filenames):
-            print(("Processing : {0}".format(filename)))
+            logging.info(("Processing : {0}".format(filename)))
             fd = open(filename)
             content = pickle.load(fd)
             fd.close()
@@ -191,10 +204,9 @@ class Light(object):
 
                 errmsg = ("Could not deal with : {0}, exception : {1}".format(
                           filename, ex))
-                print(errmsg)
+                logging.error(errmsg)
             else:
                 os.rename(filename, filename + ".bak")
-                sys.exit(0)
 
 if __name__ == "__main__":
     light = Light()
